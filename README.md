@@ -1,26 +1,50 @@
-# Jed interview captions
+# Interview captions
 
-Word-by-word English captions for the Jed makeup-artist interview. They render as a
-transparent 4K vertical video (2160x3840, 23.976 fps) in Caveat Brush. The video goes on a track
-above the footage in Premiere Pro, scaled to 50% in a 1080p sequence.
+English captions for two videos cut together in one Premiere timeline: the makeup-artist
+interview, followed by the massage demonstration. They render as a transparent 4K vertical video
+(2160x3840, 23.976 fps) in Caveat Brush, one line at a time. Frame 0 of the video is the start of
+the timeline, so the clip goes at the very start of the sequence, scaled to 50% in a 1080p
+sequence.
 
-`Jed_captions_4K_transparent.mov` is the finished render, about 21.7 MB, in the QuickTime Animation
-codec with alpha. Its timing comes from `caption_word_timing.csv`, which was built from Descript's
-Korean VTT and uses the translator's English wording.
+## How the timing works
+
+`build_captions.py` reads three inputs:
+
+- Premiere's Korean transcript, exported as SRT. It has one word per cue, on the timeline's clock.
+- The two translation worksheets (`.xlsx`), which hold the Korean sentences and the approved
+  English for each row.
+
+It matches every Korean word to its worksheet row, splits each row's English into single caption
+lines, and times each line to the Korean words it covers. A line appears when that stretch of
+speech starts and clears when it ends.
+
+```
+python3 build_captions.py project/timeline.srt project/makeup.xlsx project/massage.xlsx OUT_DIR
+```
+
+This writes `captions.csv` (the renderer's input), `captions_english.srt` (the same captions for
+styling in Premiere) and `captions_review.txt` (each caption next to the Korean it is timed to).
+The hand-made decisions live in `project/settings.py`. Git ignores the `project/` folder, along with
+the SRT and worksheets kept there, because this repository is public and they hold the client's
+translation. The settings are:
+
+- `LINE_SPLIT`: where each row's English breaks into lines.
+- `LINE_START`: lines pinned to a specific Korean word.
+- `CUE_ROW`: SRT words moved to a different row.
+- `EN_ONLY`: lines spoken in English, which are missing from the Korean SRT.
 
 ## Rendering
 
-You need Python 3 with Pillow and numpy (`pip install pillow numpy`) and ffmpeg. From this folder, run:
+You need Python 3 with Pillow, numpy and openpyxl (`pip install pillow numpy openpyxl`) and ffmpeg.
+`CaveatBrush-Regular.ttf` must be next to the scripts.
 
 ```
-python3 render_captions.py                     # Animation codec, about 20-25 MB
-python3 render_captions.py --format prores     # ProRes 4444, about 1.3 GB
-python3 render_captions.py --limit 20          # first 20 seconds only, for a quick test
+python3 render_captions.py --csv OUT_DIR/captions.csv               # Animation codec, a few tens of MB
+python3 render_captions.py --csv OUT_DIR/captions.csv --format prores   # ProRes 4444, several GB
+python3 render_captions.py --csv OUT_DIR/captions.csv --limit 20    # first 20 seconds only
 ```
 
-Both formats show the same picture with an alpha channel. Animation is lossless and small because
-frames that don't change take almost no space. ProRes 4444 was the format in the original chat,
-and it was too large to download from there.
+Both formats show the same picture with an alpha channel. Animation is lossless and small, because
+frames that don't change take almost no space.
 
-To change timing, edit `onset_sec` for a word in the CSV and re-render. Words with the same `chunk`
-number share a line, and `chunk_end_sec` is when that line clears.
+To adjust a caption, edit its `start_sec`, `end_sec` or `text` in `captions.csv` and re-render.
